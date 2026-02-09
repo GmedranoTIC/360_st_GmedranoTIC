@@ -1,21 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Scene, Tour, Hotspot, HotspotType } from './types';
 import Viewer from './components/Viewer';
 import EditorSidebar from './components/EditorSidebar';
 import HotspotPanel from './components/HotspotPanel';
+import { exportTourAsHTML } from './utils/exportTour';
 import { db } from './utils/db';
 import JSZip from 'jszip';
-import { 
-  Plus, 
-  Download, 
-  Eye, 
-  Edit3, 
-  Image as ImageIcon, 
-  FileArchive, 
-  FilePlus,
-  FileCode,
-  Loader2
-} from 'lucide-react';
+import { Plus, Download, Eye, Edit3, Image as ImageIcon, FileArchive, Save, Trash2, Info, Upload } from 'lucide-react';
 
 const App: React.FC = () => {
   const [tour, setTour] = useState<Tour>({
@@ -26,14 +18,15 @@ const App: React.FC = () => {
   const [activeSceneId, setActiveSceneId] = useState<string>('');
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState<boolean>(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const activeScene = tour.scenes.find((s) => s.id === activeSceneId);
   const selectedHotspot = activeScene?.hotspots.find((h) => h.id === selectedHotspotId);
 
+  // Load from IndexedDB on startup
   useEffect(() => {
     const init = async () => {
-      setIsLoading(true);
       try {
         const savedTour = await db.load('current-tour');
         if (savedTour && savedTour.scenes && savedTour.scenes.length > 0) {
@@ -42,519 +35,121 @@ const App: React.FC = () => {
         }
       } catch (e) {
         console.error("Auto-load failed", e);
-      } finally {
-        setIsLoading(false);
       }
     };
     init();
   }, []);
 
-  useEffect(() => {
-    if (tour.scenes.length > 0 || tour.title !== 'My 360 Tour') {
-      db.save('current-tour', tour);
-    }
-  }, [tour]);
-
-  const createNewTour = () => {
-    if (confirm("Create a new tour? This will delete all current scenes and hotspots.")) {
-      const freshTour = { title: 'New 360 Tour', startSceneId: '', scenes: [] };
-      setTour(freshTour);
-      setActiveSceneId('');
-      setSelectedHotspotId(null);
-      db.save('current-tour', freshTour);
-    }
-  };
-
-  const updateHotspot = (updatedHs: Hotspot) => {
-    setTour((prev) => ({
-      ...prev,
-      scenes: prev.scenes.map((s) =>
-        s.id === activeSceneId
-          ? {
-              ...s,
-              hotspots: s.hotspots.map((h) => (h.id === updatedHs.id ? updatedHs : h)),
-            }
-          : s
-      ),
-    }));
-  };
-
-  const removeHotspot = (id: string) => {
-    setTour((prev) => ({
-      ...prev,
-      scenes: prev.scenes.map((s) =>
-        s.id === activeSceneId
-          ? {
-              ...s,
-              hotspots: s.hotspots.filter((h) => h.id !== id),
-            }
-          : s
-      ),
-    }));
-    setSelectedHotspotId(null);
-  };
-
+  // Save to ZIP (.pano)
   const saveToZip = async () => {
-    setIsLoading(true);
     try {
+      setIsLoading(true);
       const zip = new JSZip();
-      const imgFolder = zip.folder("images");
       
-      const scenesForJson = await Promise.all(tour.scenes.map(async (scene) => {
-        const filename = scene.imageFileName || `${scene.id}.jpg`;
-        if (scene.imageSource) {
-          const res = await fetch(scene.imageSource);
-          const blob = await res.blob();
-          imgFolder?.file(filename, blob);
+      const cleanScenes = await Promise.all(tour.scenes.map(async (scene) => {
+        const { imageSource, ...rest } = scene;
+        if (imageSource) {
+          try {
+            const response = await fetch(imageSource);
+            const blob = await response.blob();
+            zip.file(`images/${scene.imageFileName}`, blob);
+          } catch (e) {
+            console.warn(`Could not include image ${scene.imageFileName} in ZIP`, e);
+          }
         }
         
         const updatedHotspots = await Promise.all(scene.hotspots.map(async (hs) => {
-          if (hs.type === HotspotType.IMAGE && hs.contentImageUrl?.startsWith('data:')) {
-            const hsFilename = `content_${hs.id}.jpg`;
-            const res = await fetch(hs.contentImageUrl);
-            const blob = await res.blob();
-            imgFolder?.file(hsFilename, blob);
-            return { ...hs, contentImageUrl: hsFilename };
+          if (hs.type === HotspotType.IMAGE && hs.contentImageUrl && hs.contentImageUrl.startsWith('data:')) {
+             const res = await fetch(hs.contentImageUrl);
+             const blob = await res.blob();
+             const filename = `content_${hs.id}.jpg`;
+             zip.file(`images/${filename}`, blob);
+             return { ...hs, contentImageUrl: filename };
           }
           return hs;
         }));
 
-        return { ...scene, imageSource: filename, hotspots: updatedHotspots };
+        return { ...rest, hotspots: updatedHotspots };
       }));
 
-      const projectData = { ...tour, scenes: scenesForJson };
-      zip.file("project.json", JSON.stringify(projectData, null, 2));
+      const projectJson = { ...tour, scenes: cleanScenes };
+      zip.file('project.json', JSON.stringify(projectJson, null, 2));
 
       const content = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(content);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${tour.title.replace(/\s+/g, '_')}.pano`;
+      a.download = `${tour.title.replace(/\s+/g, '_')}_project.pano`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      
+      await db.save('current-tour', tour);
+      setIsDirty(false);
+      alert("Project saved successfully!");
     } catch (e) {
-      console.error("Save failed", e);
-      alert("Project save failed.");
+      console.error("ZIP export failed", e);
+      alert("Failed to create project file.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const loadFromZip = async (file: File) => {
-    setIsLoading(true);
     try {
+      setIsLoading(true);
       const zip = await JSZip.loadAsync(file);
-      const projectJson = await zip.file("project.json")?.async("string");
-      if (!projectJson) throw new Error("Invalid .pano file");
+      const jsonFile = zip.file('project.json');
+      if (!jsonFile) throw new Error("Missing project.json in archive");
 
-      const projectData = JSON.parse(projectJson) as Tour;
-      
-      const reconstructedScenes = await Promise.all(projectData.scenes.map(async (scene) => {
-        const imgFile = zip.file(`images/${scene.imageSource}`);
+      const jsonText = await jsonFile.async('string');
+      const loadedTour: Tour = JSON.parse(jsonText);
+
+      const hydratedScenes = await Promise.all(loadedTour.scenes.map(async (scene) => {
+        const imgFile = zip.file(`images/${scene.imageFileName}`);
         let imageSource = '';
         if (imgFile) {
-          const blob = await imgFile.async("blob");
+          const blob = await imgFile.async('blob');
           imageSource = URL.createObjectURL(blob);
         }
 
-        const reconstructedHotspots = await Promise.all(scene.hotspots.map(async (hs) => {
+        const hydratedHotspots = await Promise.all(scene.hotspots.map(async (hs) => {
           if (hs.type === HotspotType.IMAGE && hs.contentImageUrl && !hs.contentImageUrl.startsWith('data:')) {
             const hsImgFile = zip.file(`images/${hs.contentImageUrl}`);
             if (hsImgFile) {
-              const blob = await hsImgFile.async("blob");
-              return new Promise<Hotspot>((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve({ ...hs, contentImageUrl: reader.result as string });
-                reader.readAsDataURL(blob);
-              });
+              const blob = await hsImgFile.async('blob');
+              return { ...hs, contentImageUrl: await blobToBase64(blob) };
             }
           }
           return hs;
         }));
 
-        return { ...scene, imageSource, hotspots: reconstructedHotspots };
+        return { ...scene, imageSource, hotspots: hydratedHotspots };
       }));
 
-      const newTour = { ...projectData, scenes: reconstructedScenes };
-      setTour(newTour);
-      setActiveSceneId(newTour.startSceneId || (newTour.scenes.length > 0 ? newTour.scenes[0].id : ''));
-      setSelectedHotspotId(null);
+      const finalTour = { ...loadedTour, scenes: hydratedScenes };
+      setTour(finalTour);
+      if (finalTour.scenes.length > 0) setActiveSceneId(finalTour.startSceneId || finalTour.scenes[0].id);
+      setIsDirty(false);
+      await db.save('current-tour', finalTour);
     } catch (e) {
-      console.error("Load failed", e);
-      alert("Failed to load project file.");
+      console.error("ZIP import failed", e);
+      alert("Error loading .pano file.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const exportAsZip = async () => {
-    if (tour.scenes.length === 0) {
-      alert("Por favor añade al menos una escena antes de exportar.");
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const zip = new JSZip();
-      const imgFolder = zip.folder("images");
-      
-      if (!imgFolder) {
-        throw new Error("No se pudo crear la carpeta de imágenes");
-      }
-      
-      const exportedScenes = await Promise.all(tour.scenes.map(async (scene, index) => {
-        // Usar nombre de archivo o generar uno basado en el índice
-        let filename = scene.imageFileName || `scene_${index}.jpg`;
-        
-        // Guardar imagen de la escena
-        if (scene.imageSource) {
-          try {
-            const res = await fetch(scene.imageSource);
-            const blob = await res.blob();
-            imgFolder.file(filename, blob);
-            console.log(`✓ Imagen guardada: ${filename}`);
-          } catch (err) {
-            console.error(`✗ Error al guardar imagen de escena ${scene.name}:`, err);
-          }
-        }
-        
-        // Procesar hotspots con imágenes
-        const updatedHotspots = await Promise.all(scene.hotspots.map(async (hs) => {
-          if (hs.type === HotspotType.IMAGE && hs.contentImageUrl) {
-            // Si es una imagen en base64 o blob URL
-            if (hs.contentImageUrl.startsWith('data:') || hs.contentImageUrl.startsWith('blob:')) {
-              const hsFilename = `hotspot_${hs.id}.jpg`;
-              try {
-                const res = await fetch(hs.contentImageUrl);
-                const blob = await res.blob();
-                imgFolder.file(hsFilename, blob);
-                console.log(`✓ Imagen hotspot guardada: ${hsFilename}`);
-                return { ...hs, contentImageUrl: `images/${hsFilename}` };
-              } catch (err) {
-                console.error(`✗ Error al guardar imagen del hotspot ${hs.id}:`, err);
-              }
-            }
-          }
-          return hs;
-        }));
-
-        return {
-          ...scene,
-          imageSource: `images/${filename}`,
-          hotspots: updatedHotspots
-        };
-      }));
-
-      const exportData = { ...tour, scenes: exportedScenes };
-      
-      const viewerHtml = `<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${tour.title}</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <style>
-        body { 
-            margin: 0; 
-            overflow: hidden; 
-            background: #1c1917; 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-        }
-        #container { 
-            width: 100vw; 
-            height: 100vh; 
-            cursor: grab; 
-        }
-        #container:active { 
-            cursor: grabbing; 
-        }
-        .hotspot { 
-            position: absolute; 
-            width: 44px; 
-            height: 44px; 
-            background: rgba(255,255,255,0.95); 
-            border: 3px solid #fff; 
-            border-radius: 50%; 
-            cursor: pointer; 
-            transform: translate(-50%, -50%); 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            box-shadow: 0 4px 16px rgba(0,0,0,0.5); 
-            z-index: 10; 
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-        }
-        .hotspot:hover { 
-            transform: translate(-50%, -50%) scale(1.2); 
-            background: #fff; 
-            box-shadow: 0 6px 20px rgba(0,0,0,0.6); 
-        }
-        .hotspot-label { 
-            position: absolute; 
-            top: 52px; 
-            background: rgba(0,0,0,0.9); 
-            color: #fff; 
-            padding: 6px 12px; 
-            border-radius: 6px; 
-            font-size: 12px; 
-            white-space: nowrap; 
-            pointer-events: none; 
-            font-weight: 600; 
-            text-transform: uppercase; 
-            letter-spacing: 0.5px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
-        #overlay { 
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            background: rgba(0,0,0,0.95); 
-            display: none; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            z-index: 100; 
-            color: white; 
-            animation: fadeIn 0.3s ease;
-        }
-        @keyframes fadeIn { 
-            from { opacity: 0; } 
-            to { opacity: 1; } 
-        }
-        #overlay img { 
-            max-width: 90%; 
-            max-height: 80%; 
-            border-radius: 12px; 
-            box-shadow: 0 0 60px rgba(0,0,0,0.8); 
-            border: 2px solid rgba(255,255,255,0.1);
-        }
-        #overlay-text {
-            margin-top: 24px;
-            font-size: 20px;
-            font-weight: 600;
-        }
-        .close-btn { 
-            position: absolute; 
-            top: 30px; 
-            right: 30px; 
-            font-size: 48px; 
-            cursor: pointer; 
-            color: #fff;
-            transition: all 0.2s;
-            line-height: 1;
-        }
-        .close-btn:hover {
-            color: #ff4b4b;
-            transform: scale(1.1);
-        }
-        #attribution { 
-            position: fixed; 
-            bottom: 16px; 
-            right: 16px; 
-            color: rgba(255,255,255,0.6); 
-            font-size: 11px; 
-            font-weight: 600; 
-            background: rgba(0,0,0,0.4); 
-            padding: 8px 14px; 
-            border-radius: 8px; 
-            pointer-events: none; 
-            backdrop-filter: blur(8px);
-        }
-        #title-overlay { 
-            position: fixed; 
-            top: 24px; 
-            left: 24px; 
-            color: white; 
-            background: rgba(0,0,0,0.6); 
-            padding: 12px 24px; 
-            border-radius: 24px; 
-            font-weight: 700; 
-            pointer-events: none; 
-            border: 1px solid rgba(255,255,255,0.15); 
-            backdrop-filter: blur(8px);
-            font-size: 16px;
-        }
-        #loading {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-size: 18px;
-            background: rgba(0,0,0,0.8);
-            padding: 20px 40px;
-            border-radius: 12px;
-            z-index: 1000;
-        }
-    </style>
-</head>
-<body>
-    <div id="loading">Cargando tour...</div>
-    <div id="title-overlay">${tour.title}</div>
-    <div id="attribution">360° Studio by @GmedranoTIC</div>
-    <div id="container"></div>
-    <div id="overlay">
-        <span class="close-btn" onclick="document.getElementById('overlay').style.display='none'">&times;</span>
-        <img id="overlay-img" />
-        <p id="overlay-text"></p>
-    </div>
-    <script>
-        const tourData = ${JSON.stringify(exportData)};
-        let camera, scene, renderer, sphere, currentSceneId;
-        const hotspots = [];
-        let lon = 0, lat = 0, phi = 0, theta = 0;
-        let isUserInteracting = false, onPointerDownPointerX = 0, onPointerDownPointerY = 0, onPointerDownLon = 0, onPointerDownLat = 0;
-
-        init();
-        animate();
-
-        function init() {
-            const container = document.getElementById('container');
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 1100);
-            scene = new THREE.Scene();
-            const geometry = new THREE.SphereGeometry(500, 60, 40);
-            geometry.scale(-1, 1, 1);
-            const material = new THREE.MeshBasicMaterial();
-            sphere = new THREE.Mesh(geometry, material);
-            scene.add(sphere);
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            container.appendChild(renderer.domElement);
-            document.addEventListener('pointerdown', onPointerDown);
-            window.addEventListener('resize', onWindowResize);
-            document.addEventListener('wheel', (e) => {
-                camera.fov = Math.max(10, Math.min(100, camera.fov + e.deltaY * 0.05));
-                camera.updateProjectionMatrix();
-            });
-            loadScene(tourData.startSceneId || tourData.scenes[0].id);
-        }
-
-        function loadScene(id) {
-            const data = tourData.scenes.find(s => s.id === id);
-            if (!data) {
-                console.error('Escena no encontrada:', id);
-                return;
-            }
-            currentSceneId = id;
-            
-            const loader = new THREE.TextureLoader();
-            loader.load(
-                data.imageSource, 
-                (texture) => {
-                    sphere.material.map = texture;
-                    sphere.material.needsUpdate = true;
-                    renderHotspots(data.hotspots);
-                    document.getElementById('loading').style.display = 'none';
-                }, 
-                undefined, 
-                (err) => {
-                    console.error("Error cargando textura:", err);
-                    document.getElementById('loading').textContent = 'Error al cargar imagen';
-                }
-            );
-        }
-
-        function renderHotspots(list) {
-            hotspots.forEach(h => h.el.remove());
-            hotspots.length = 0;
-            list.forEach(hs => {
-                const el = document.createElement('div');
-                el.className = 'hotspot';
-                let icon = hs.type==='SCENE'?'🚪':hs.type==='LINK'?'🔗':'🖼️';
-                el.innerHTML = '<span style="font-size:24px">'+icon+'</span><div class="hotspot-label">'+hs.label+'</div>';
-                el.onclick = () => {
-                    if(hs.type==='SCENE') loadScene(hs.targetSceneId);
-                    else if(hs.type==='LINK') window.open(hs.targetUrl, '_blank');
-                    else if(hs.type==='IMAGE') {
-                        document.getElementById('overlay-img').src = hs.contentImageUrl;
-                        document.getElementById('overlay-text').innerText = hs.label;
-                        document.getElementById('overlay').style.display = 'flex';
-                    }
-                };
-                document.body.appendChild(el);
-                hotspots.push({ el, data: hs });
-            });
-        }
-
-        function onPointerDown(e) {
-            isUserInteracting = true;
-            onPointerDownPointerX = e.clientX;
-            onPointerDownPointerY = e.clientY;
-            onPointerDownLon = lon;
-            onPointerDownLat = lat;
-            document.addEventListener('pointermove', onPointerMove);
-            document.addEventListener('pointerup', onPointerUp);
-        }
-        function onPointerMove(e) {
-            lon = (onPointerDownPointerX - e.clientX) * 0.15 + onPointerDownLon;
-            lat = (e.clientY - onPointerDownPointerY) * 0.15 + onPointerDownLat;
-        }
-        function onPointerUp() {
-            isUserInteracting = false;
-            document.removeEventListener('pointermove', onPointerMove);
-            document.removeEventListener('pointerup', onPointerUp);
-        }
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-        function animate() {
-            requestAnimationFrame(animate);
-            lat = Math.max(-85, Math.min(85, lat));
-            phi = THREE.MathUtils.degToRad(90 - lat);
-            theta = THREE.MathUtils.degToRad(lon);
-            camera.lookAt(500 * Math.sin(phi) * Math.cos(theta), 500 * Math.cos(phi), 500 * Math.sin(phi) * Math.sin(theta));
-            renderer.render(scene, camera);
-            hotspots.forEach(h => {
-                const v = new THREE.Vector3(h.data.position.x, h.data.position.y, h.data.position.z);
-                v.project(camera);
-                if(v.z > 1) h.el.style.display = 'none';
-                else {
-                    h.el.style.display = 'flex';
-                    h.el.style.left = (v.x * 0.5 + 0.5) * window.innerWidth + 'px';
-                    h.el.style.top = (v.y * -0.5 + 0.5) * window.innerHeight + 'px';
-                }
-            });
-        }
-    </script>
-</body>
-</html>`;
-      
-      zip.file("index.html", viewerHtml);
-      
-      console.log("Generando archivo ZIP...");
-      const content = await zip.generateAsync({ 
-        type: 'blob',
-        compression: "DEFLATE",
-        compressionOptions: { level: 6 }
-      });
-      
-      const url = URL.createObjectURL(content);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${tour.title.replace(/\s+/g, '_')}_tour.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      console.log("✓ Tour exportado exitosamente");
-      alert("Tour exportado exitosamente. El ZIP contiene index.html y la carpeta images/");
-    } catch (e) {
-      console.error("Error en la exportación:", e);
-      alert("Error al exportar el tour: " + (e as Error).message);
-    } finally {
-      setIsLoading(false);
-    }
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
   };
 
-  const addSceneFile = async (file: File) => {
+  const addScene = useCallback(async (file: File) => {
     const imageSource = URL.createObjectURL(file);
     const newScene: Scene = {
       id: crypto.randomUUID(),
@@ -564,115 +159,139 @@ const App: React.FC = () => {
       hotspots: [],
     };
 
-    setTour((prev) => ({
-      ...prev,
-      scenes: [...prev.scenes, newScene],
-      startSceneId: prev.startSceneId || newScene.id
-    }));
-    
+    setTour((prev) => {
+      const updated = {
+        ...prev,
+        scenes: [...prev.scenes, newScene],
+        startSceneId: prev.startSceneId || newScene.id,
+      };
+      db.save('current-tour', updated);
+      return updated;
+    });
     setActiveSceneId(newScene.id);
-  };
+    setIsDirty(true);
+  }, []);
 
-  const addHotspotAt = (pos: { x: number, y: number, z: number }) => {
-    if (!activeSceneId) return;
+  const updateHotspot = useCallback((updated: Hotspot) => {
+    setTour((prev) => {
+      const next = {
+        ...prev,
+        scenes: prev.scenes.map((s) =>
+          s.id === activeSceneId
+            ? { ...s, hotspots: s.hotspots.map((h) => (h.id === updated.id ? updated : h)) }
+            : s
+        ),
+      };
+      db.save('current-tour', next);
+      return next;
+    });
+    setIsDirty(true);
+  }, [activeSceneId]);
+
+  const addHotspot = useCallback((position: { x: number; y: number; z: number }) => {
+    if (!activeSceneId || isPreviewMode) return;
+
     const newId = crypto.randomUUID();
-    const newHs: Hotspot = {
+    const newHotspot: Hotspot = {
       id: newId,
       type: HotspotType.SCENE,
-      position: pos,
+      position: { x: position.x, y: position.y, z: position.z },
       label: 'New Hotspot',
       targetSceneId: '',
+      targetUrl: '',
+      contentImageUrl: '',
     };
 
-    setTour(prev => ({
-      ...prev,
-      scenes: prev.scenes.map(s => s.id === activeSceneId ? { ...s, hotspots: [...s.hotspots, newHs] } : s)
-    }));
+    setTour((prev) => {
+      const updated = {
+        ...prev,
+        scenes: prev.scenes.map((s) =>
+          s.id === activeSceneId ? { ...s, hotspots: [...s.hotspots, newHotspot] } : s
+        ),
+      };
+      db.save('current-tour', updated);
+      return updated;
+    });
+    
     setSelectedHotspotId(newId);
-  };
+    setIsDirty(true);
+  }, [activeSceneId, isPreviewMode]);
 
-  const amberBtnClass = "flex items-center gap-2 px-5 py-2 bg-amber-700 hover:bg-amber-600 rounded-lg text-white font-bold shadow-lg shadow-amber-900/40 transition-all active:scale-95 text-sm whitespace-nowrap";
+  const removeHotspot = useCallback((id: string) => {
+    setTour((prev) => {
+      const updated = {
+        ...prev,
+        scenes: prev.scenes.map((s) =>
+          s.id === activeSceneId ? { ...s, hotspots: s.hotspots.filter((h) => h.id !== id) } : s
+        ),
+      };
+      db.save('current-tour', updated);
+      return updated;
+    });
+    setSelectedHotspotId(null);
+    setIsDirty(true);
+  }, [activeSceneId]);
 
   return (
-    <div className="flex h-screen bg-neutral-950 text-stone-100 font-sans overflow-hidden">
-      {isLoading && (
-        <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-sm z-[100] flex flex-col items-center justify-center">
-          <Loader2 className="w-12 h-12 text-amber-600 animate-spin mb-4" />
-          <p className="text-lg font-bold animate-pulse text-amber-500 uppercase tracking-widest">Processing...</p>
-        </div>
-      )}
-
+    <div className="flex h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">
       <EditorSidebar
         tour={tour}
         activeSceneId={activeSceneId}
         onSelectScene={setActiveSceneId}
-        onAddScene={addSceneFile}
+        onAddScene={addScene}
         onRemoveScene={(id) => {
-          if(confirm("Remove this scene?")) {
-            setTour(prev => ({ ...prev, scenes: prev.scenes.filter(s => s.id !== id) }));
-            if(activeSceneId === id) setActiveSceneId(tour.scenes.find(s => s.id !== id)?.id || '');
-          }
+            if (!confirm("Remove this scene?")) return;
+            setTour(prev => {
+                const nextScenes = prev.scenes.filter(s => s.id !== id);
+                return { ...prev, scenes: nextScenes, startSceneId: prev.startSceneId === id ? (nextScenes[0]?.id || '') : prev.startSceneId };
+            });
+            setIsDirty(true);
         }}
-        onUpdateTourTitle={(t) => setTour(p => ({ ...p, title: t }))}
+        onLoadProject={loadFromZip}
+        onUpdateTourTitle={(title) => { setTour((prev) => ({ ...prev, title })); setIsDirty(true); }}
       />
 
       <div className="flex-1 relative flex flex-col">
-        <header className="h-16 border-b border-stone-800 flex items-center justify-between px-6 bg-stone-900/50 backdrop-blur-md z-10">
-          <div className="flex items-center gap-6 overflow-x-auto no-scrollbar">
-            <h1 className="text-xl font-bold truncate max-w-[200px] text-stone-100 shrink-0">{tour.title}</h1>
-            
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={createNewTour}
-                className={amberBtnClass}
-              >
-                <FilePlus size={16} />
-                New Tour
-              </button>
-
-              <label className={amberBtnClass + " cursor-pointer"}>
-                <FileCode size={16} />
-                Open .pano
-                <input
-                  type="file"
-                  accept=".pano"
-                  className="hidden"
-                  onChange={(e) => e.target.files?.[0] && loadFromZip(e.target.files[0])}
-                />
-              </label>
-
-              <button
-                onClick={saveToZip}
-                className={amberBtnClass}
-              >
-                <FileArchive size={16} />
-                Save .pano
-              </button>
-
-              <button
-                onClick={() => setIsPreviewMode(!isPreviewMode)}
-                className={amberBtnClass}
-              >
-                {isPreviewMode ? <Edit3 size={16} /> : <Eye size={16} />}
-                {isPreviewMode ? 'Editor' : 'Preview'}
-              </button>
-
-              <button
-                onClick={exportAsZip}
-                className={amberBtnClass}
-              >
-                <Download size={16} />
-                Export
-              </button>
-            </div>
+        <header className="h-16 border-b border-slate-800 flex items-center justify-between px-6 bg-slate-900/50 backdrop-blur-md z-10">
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+              {tour.title}
+            </h1>
+            {isDirty && <span className="text-[10px] bg-amber-500/10 text-amber-500 px-2.5 py-1 rounded-full border border-amber-500/20 uppercase font-black tracking-widest">Unsaved</span>}
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <button
+              onClick={saveToZip}
+              disabled={isLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-all border border-slate-700 font-medium disabled:opacity-50"
+            >
+              <Save size={18} />
+              {isLoading ? 'Processing...' : 'Save .pano'}
+            </button>
+            <div className="w-px h-6 bg-slate-800 mx-1" />
+            <button
+              onClick={() => setIsPreviewMode(!isPreviewMode)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium ${isPreviewMode ? 'bg-emerald-600 text-white' : 'bg-slate-800 hover:bg-slate-700 border border-slate-700'}`}
+            >
+              {isPreviewMode ? <Edit3 size={18} /> : <Eye size={18} />}
+              {isPreviewMode ? 'Editor' : 'Preview'}
+            </button>
+            <button
+              onClick={() => exportTourAsHTML(tour)}
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-bold shadow-lg shadow-blue-900/20"
+            >
+              <Download size={18} />
+              Export HTML
+            </button>
           </div>
         </header>
 
-        <main className="flex-1 relative bg-black">
+        <main className="flex-1 relative overflow-hidden bg-black">
           {activeScene ? (
             <Viewer
               scene={activeScene}
-              onAddHotspot={addHotspotAt}
+              onAddHotspot={addHotspot}
               onHotspotClick={(hs) => {
                 if (isPreviewMode) {
                   if (hs.type === HotspotType.SCENE && hs.targetSceneId) setActiveSceneId(hs.targetSceneId);
@@ -686,16 +305,22 @@ const App: React.FC = () => {
               isPreviewMode={isPreviewMode}
             />
           ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-[#0c0a09]">
-              <div className="max-w-md w-full p-10 bg-stone-900/40 rounded-[2.5rem] border border-stone-800 backdrop-blur-xl">
-                <ImageIcon size={48} className="text-amber-600 mx-auto mb-6" />
-                <h2 className="text-2xl font-black mb-4 tracking-tight text-stone-100">360º Studio</h2>
-                <p className="text-stone-400 mb-8">Ready to build your tour? Upload your first 360&deg; equirectangular image to begin.</p>
-                <label className="flex items-center justify-center gap-3 px-8 py-4 bg-amber-700 hover:bg-amber-600 rounded-2xl font-bold cursor-pointer transition-all shadow-lg shadow-amber-900/40 text-white">
-                  <Plus size={20} />
-                  Add First Scene
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && addSceneFile(e.target.files[0])} />
-                </label>
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
+              <div className="max-w-md w-full p-10 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 backdrop-blur-xl">
+                <ImageIcon size={48} className="text-blue-500 mx-auto mb-6" />
+                <h2 className="text-2xl font-black mb-4 tracking-tight">Panocraft 360 Studio</h2>
+                <div className="flex flex-col gap-3">
+                  <label className="flex items-center justify-center gap-3 px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold cursor-pointer transition-all active:scale-95 shadow-lg shadow-blue-900/20">
+                    <Plus size={20} />
+                    New 360 Scene
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && addScene(e.target.files[0])} />
+                  </label>
+                  <label className="flex items-center justify-center gap-3 px-8 py-4 bg-slate-800 hover:bg-slate-700 rounded-2xl font-bold border border-slate-700 cursor-pointer transition-all active:scale-95">
+                    <Upload size={20} />
+                    Load .pano Project
+                    <input type="file" accept=".pano" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromZip(e.target.files[0])} />
+                  </label>
+                </div>
               </div>
             </div>
           )}

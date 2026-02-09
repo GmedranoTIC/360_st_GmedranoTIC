@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { Scene, Hotspot, HotspotType } from '../types';
@@ -24,6 +25,7 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
   const pointerDownCoord = useRef({ x: 0, y: 0 });
   const pointerDownRot = useRef({ lon: 0, lat: 0 });
 
+  // Callback stability
   const onAddHotspotRef = useRef(onAddHotspot);
   const isPreviewModeRef = useRef(isPreviewMode);
   useEffect(() => { onAddHotspotRef.current = onAddHotspot; }, [onAddHotspot]);
@@ -48,6 +50,7 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
     rendererRef.current = renderer;
 
     const geometry = new THREE.SphereGeometry(500, 60, 40);
+    // DoubleSide is more robust for raycasting from within
     const material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true });
     const sphere = new THREE.Mesh(geometry, material);
     threeScene.add(sphere);
@@ -116,6 +119,7 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
       
       const dist = Math.hypot(e.clientX - pointerDownCoord.current.x, e.clientY - pointerDownCoord.current.y);
       
+      // If it's a discrete click and not preview mode
       if (dist < 5 && !isPreviewModeRef.current) {
         if (!rendererRef.current || !cameraRef.current || !containerRef.current || !sphereRef.current) return;
         
@@ -127,10 +131,12 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
         
         const raycaster = new THREE.Raycaster();
         raycaster.setFromCamera(mouse, cameraRef.current!);
+        // Increase precision for large scenes
         raycaster.params.Mesh.threshold = 0;
         
         const intersects = raycaster.intersectObject(sphereRef.current!);
         if (intersects.length > 0) {
+          // Send the point of intersection on the sphere
           onAddHotspotRef.current({
             x: intersects[0].point.x,
             y: intersects[0].point.y,
@@ -180,6 +186,7 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
     };
   }, []);
 
+  // Update image texture
   useEffect(() => {
     if (!sphereRef.current || !scene.imageSource) return;
     const loader = new THREE.TextureLoader();
@@ -193,7 +200,7 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
   }, [scene.imageSource]);
 
   return (
-    <div ref={containerRef} className="w-full h-full bg-[#0c0a09] relative overflow-hidden touch-none cursor-grab active:cursor-grabbing">
+    <div ref={containerRef} className="w-full h-full bg-black relative overflow-hidden touch-none cursor-grab active:cursor-grabbing">
       <div ref={hotspotsLayerRef} className="absolute inset-0 pointer-events-none z-20">
         {scene.hotspots.map((hs) => (
           <div
@@ -201,14 +208,14 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
             data-pos={JSON.stringify(hs.position)}
             onClick={(e) => { e.stopPropagation(); onHotspotClick(hs); }}
             className={`absolute flex flex-col items-center justify-center -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full cursor-pointer transition-all pointer-events-auto group
-              ${selectedHotspotId === hs.id && !isPreviewMode ? 'ring-4 ring-amber-500 scale-125 shadow-amber-900/40' : 'hover:scale-110 shadow-black/40'}
-              ${hs.type === HotspotType.SCENE ? 'bg-amber-700' : hs.type === HotspotType.LINK ? 'bg-orange-800' : 'bg-stone-700'}
-              border-2 border-stone-200 shadow-xl`}
+              ${selectedHotspotId === hs.id && !isPreviewMode ? 'ring-4 ring-blue-500 scale-125' : 'hover:scale-110'}
+              ${hs.type === HotspotType.SCENE ? 'bg-blue-600' : hs.type === HotspotType.LINK ? 'bg-orange-600' : 'bg-purple-600'}
+              border-2 border-white shadow-xl`}
           >
             <span className="text-white text-lg drop-shadow-md pointer-events-none">
               {hs.type === HotspotType.SCENE ? '🚪' : hs.type === HotspotType.LINK ? '🔗' : '🖼️'}
             </span>
-            <div className="absolute top-12 opacity-0 group-hover:opacity-100 bg-stone-900/90 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-lg whitespace-nowrap border border-stone-700 shadow-2xl transition-all uppercase tracking-wider">
+            <div className="absolute top-12 opacity-0 group-hover:opacity-100 bg-slate-900/90 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-lg whitespace-nowrap border border-white/10 shadow-2xl transition-all uppercase tracking-wider">
               {hs.label}
             </div>
           </div>
@@ -216,7 +223,7 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
       </div>
       
       {!isPreviewMode && (
-         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-stone-950/80 backdrop-blur-md border border-stone-800 px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 pointer-events-none z-30 shadow-2xl ring-1 ring-amber-500/20">
+         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-slate-950/80 backdrop-blur-md border border-slate-800 px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 pointer-events-none z-30 shadow-2xl ring-1 ring-blue-500/20">
             Click Anywhere to Place Hotspot
          </div>
       )}
