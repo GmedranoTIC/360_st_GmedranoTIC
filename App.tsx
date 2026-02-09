@@ -33,14 +33,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      setIsLoading(true);
-      
-      // Timeout de seguridad para evitar carga infinita
-      const timeout = setTimeout(() => {
-        console.warn("Init timeout - forcing load completion");
-        setIsLoading(false);
-      }, 3000); // 3 segundos máximo
-      
+      // No setear isLoading(true) en la carga inicial
       try {
         const savedTour = await db.load('current-tour');
         if (savedTour && savedTour.scenes && savedTour.scenes.length > 0) {
@@ -49,10 +42,8 @@ const App: React.FC = () => {
         }
       } catch (e) {
         console.error("Auto-load failed", e);
-      } finally {
-        clearTimeout(timeout);
-        setIsLoading(false);
       }
+      // No hay finally, el editor carga inmediatamente
     };
     init();
   }, []);
