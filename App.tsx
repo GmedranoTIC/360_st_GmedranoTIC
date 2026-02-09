@@ -191,7 +191,7 @@ const App: React.FC = () => {
 
   const exportAsZip = async () => {
     if (tour.scenes.length === 0) {
-      alert("Please add at least one scene before exporting.");
+      alert("Por favor añade al menos una escena antes de exportar.");
       return;
     }
     setIsLoading(true);
@@ -199,28 +199,41 @@ const App: React.FC = () => {
       const zip = new JSZip();
       const imgFolder = zip.folder("images");
       
-      const exportedScenes = await Promise.all(tour.scenes.map(async (scene) => {
-        let filename = scene.imageFileName || `${scene.id}.jpg`;
+      if (!imgFolder) {
+        throw new Error("No se pudo crear la carpeta de imágenes");
+      }
+      
+      const exportedScenes = await Promise.all(tour.scenes.map(async (scene, index) => {
+        // Usar nombre de archivo o generar uno basado en el índice
+        let filename = scene.imageFileName || `scene_${index}.jpg`;
+        
+        // Guardar imagen de la escena
         if (scene.imageSource) {
           try {
             const res = await fetch(scene.imageSource);
             const blob = await res.blob();
-            imgFolder?.file(filename, blob);
+            imgFolder.file(filename, blob);
+            console.log(`✓ Imagen guardada: ${filename}`);
           } catch (err) {
-            console.warn(`Could not fetch image for scene ${scene.name}`, err);
+            console.error(`✗ Error al guardar imagen de escena ${scene.name}:`, err);
           }
         }
         
+        // Procesar hotspots con imágenes
         const updatedHotspots = await Promise.all(scene.hotspots.map(async (hs) => {
-          if (hs.type === HotspotType.IMAGE && hs.contentImageUrl?.startsWith('data:')) {
-            const hsFilename = `content_${hs.id}.jpg`;
-            try {
-              const res = await fetch(hs.contentImageUrl);
-              const blob = await res.blob();
-              imgFolder?.file(hsFilename, blob);
-              return { ...hs, contentImageUrl: `./images/${hsFilename}` };
-            } catch (err) {
-              console.warn(`Could not fetch hotspot image ${hs.id}`, err);
+          if (hs.type === HotspotType.IMAGE && hs.contentImageUrl) {
+            // Si es una imagen en base64 o blob URL
+            if (hs.contentImageUrl.startsWith('data:') || hs.contentImageUrl.startsWith('blob:')) {
+              const hsFilename = `hotspot_${hs.id}.jpg`;
+              try {
+                const res = await fetch(hs.contentImageUrl);
+                const blob = await res.blob();
+                imgFolder.file(hsFilename, blob);
+                console.log(`✓ Imagen hotspot guardada: ${hsFilename}`);
+                return { ...hs, contentImageUrl: `images/${hsFilename}` };
+              } catch (err) {
+                console.error(`✗ Error al guardar imagen del hotspot ${hs.id}:`, err);
+              }
             }
           }
           return hs;
@@ -228,7 +241,7 @@ const App: React.FC = () => {
 
         return {
           ...scene,
-          imageSource: `./images/${filename}`,
+          imageSource: `images/${filename}`,
           hotspots: updatedHotspots
         };
       }));
@@ -236,33 +249,158 @@ const App: React.FC = () => {
       const exportData = { ...tour, scenes: exportedScenes };
       
       const viewerHtml = `<!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${tour.title}</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #1c1917; font-family: sans-serif; }
-        #container { width: 100vw; height: 100vh; cursor: grab; }
-        #container:active { cursor: grabbing; }
-        .hotspot { position: absolute; width: 44px; height: 44px; background: rgba(255,255,255,0.9); border: 2px solid #fff; border-radius: 50%; cursor: pointer; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 10; transition: transform 0.2s; }
-        .hotspot:hover { transform: translate(-50%, -50%) scale(1.15); background: #fff; }
-        .hotspot-label { position: absolute; top: 50px; background: rgba(0,0,0,0.85); color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 12px; white-space: nowrap; pointer-events: none; font-weight: bold; text-transform: uppercase; }
-        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; color: white; }
-        #overlay img { max-width: 90%; max-height: 80%; border-radius: 8px; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
-        .close-btn { position: absolute; top: 20px; right: 20px; font-size: 40px; cursor: pointer; }
-        #attribution { position: fixed; bottom: 10px; right: 10px; color: rgba(255,255,255,0.5); font-size: 10px; font-weight: bold; background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 5px; pointer-events: none; }
-        #title-overlay { position: fixed; top: 20px; left: 20px; color: white; background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 20px; font-weight: bold; pointer-events: none; border: 1px solid rgba(255,255,255,0.1); }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: #1c1917; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+        }
+        #container { 
+            width: 100vw; 
+            height: 100vh; 
+            cursor: grab; 
+        }
+        #container:active { 
+            cursor: grabbing; 
+        }
+        .hotspot { 
+            position: absolute; 
+            width: 44px; 
+            height: 44px; 
+            background: rgba(255,255,255,0.95); 
+            border: 3px solid #fff; 
+            border-radius: 50%; 
+            cursor: pointer; 
+            transform: translate(-50%, -50%); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5); 
+            z-index: 10; 
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        }
+        .hotspot:hover { 
+            transform: translate(-50%, -50%) scale(1.2); 
+            background: #fff; 
+            box-shadow: 0 6px 20px rgba(0,0,0,0.6); 
+        }
+        .hotspot-label { 
+            position: absolute; 
+            top: 52px; 
+            background: rgba(0,0,0,0.9); 
+            color: #fff; 
+            padding: 6px 12px; 
+            border-radius: 6px; 
+            font-size: 12px; 
+            white-space: nowrap; 
+            pointer-events: none; 
+            font-weight: 600; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        #overlay { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0,0,0,0.95); 
+            display: none; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 100; 
+            color: white; 
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { 
+            from { opacity: 0; } 
+            to { opacity: 1; } 
+        }
+        #overlay img { 
+            max-width: 90%; 
+            max-height: 80%; 
+            border-radius: 12px; 
+            box-shadow: 0 0 60px rgba(0,0,0,0.8); 
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+        #overlay-text {
+            margin-top: 24px;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .close-btn { 
+            position: absolute; 
+            top: 30px; 
+            right: 30px; 
+            font-size: 48px; 
+            cursor: pointer; 
+            color: #fff;
+            transition: all 0.2s;
+            line-height: 1;
+        }
+        .close-btn:hover {
+            color: #ff4b4b;
+            transform: scale(1.1);
+        }
+        #attribution { 
+            position: fixed; 
+            bottom: 16px; 
+            right: 16px; 
+            color: rgba(255,255,255,0.6); 
+            font-size: 11px; 
+            font-weight: 600; 
+            background: rgba(0,0,0,0.4); 
+            padding: 8px 14px; 
+            border-radius: 8px; 
+            pointer-events: none; 
+            backdrop-filter: blur(8px);
+        }
+        #title-overlay { 
+            position: fixed; 
+            top: 24px; 
+            left: 24px; 
+            color: white; 
+            background: rgba(0,0,0,0.6); 
+            padding: 12px 24px; 
+            border-radius: 24px; 
+            font-weight: 700; 
+            pointer-events: none; 
+            border: 1px solid rgba(255,255,255,0.15); 
+            backdrop-filter: blur(8px);
+            font-size: 16px;
+        }
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 18px;
+            background: rgba(0,0,0,0.8);
+            padding: 20px 40px;
+            border-radius: 12px;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
+    <div id="loading">Cargando tour...</div>
     <div id="title-overlay">${tour.title}</div>
-    <div id="attribution">CCBYNCSA @GmedranoTIC</div>
+    <div id="attribution">360° Studio by @GmedranoTIC</div>
     <div id="container"></div>
     <div id="overlay">
         <span class="close-btn" onclick="document.getElementById('overlay').style.display='none'">&times;</span>
         <img id="overlay-img" />
-        <p id="overlay-text" style="margin-top: 20px; font-size: 18px; font-weight: bold;"></p>
+        <p id="overlay-text"></p>
     </div>
     <script>
         const tourData = ${JSON.stringify(exportData)};
@@ -298,13 +436,27 @@ const App: React.FC = () => {
 
         function loadScene(id) {
             const data = tourData.scenes.find(s => s.id === id);
-            if (!data) return;
+            if (!data) {
+                console.error('Escena no encontrada:', id);
+                return;
+            }
             currentSceneId = id;
-            new THREE.TextureLoader().load(data.imageSource, (t) => {
-                sphere.material.map = t;
-                sphere.material.needsUpdate = true;
-                renderHotspots(data.hotspots);
-            }, undefined, (err) => console.error("Error loading texture", err));
+            
+            const loader = new THREE.TextureLoader();
+            loader.load(
+                data.imageSource, 
+                (texture) => {
+                    sphere.material.map = texture;
+                    sphere.material.needsUpdate = true;
+                    renderHotspots(data.hotspots);
+                    document.getElementById('loading').style.display = 'none';
+                }, 
+                undefined, 
+                (err) => {
+                    console.error("Error cargando textura:", err);
+                    document.getElementById('loading').textContent = 'Error al cargar imagen';
+                }
+            );
         }
 
         function renderHotspots(list) {
@@ -375,19 +527,28 @@ const App: React.FC = () => {
 </html>`;
       
       zip.file("index.html", viewerHtml);
-
-      const content = await zip.generateAsync({ type: 'blob' });
+      
+      console.log("Generando archivo ZIP...");
+      const content = await zip.generateAsync({ 
+        type: 'blob',
+        compression: "DEFLATE",
+        compressionOptions: { level: 6 }
+      });
+      
       const url = URL.createObjectURL(content);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${tour.title.replace(/\s+/g, '_')}_published_tour.zip`;
+      a.download = `${tour.title.replace(/\s+/g, '_')}_tour.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      
+      console.log("✓ Tour exportado exitosamente");
+      alert("Tour exportado exitosamente. El ZIP contiene index.html y la carpeta images/");
     } catch (e) {
-      console.error("Export failed", e);
-      alert("Export failed.");
+      console.error("Error en la exportación:", e);
+      alert("Error al exportar el tour: " + (e as Error).message);
     } finally {
       setIsLoading(false);
     }
