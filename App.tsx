@@ -52,7 +52,7 @@ async function addLogoToNadir(imageSrc: string): Promise<string> {
         
         // Calcular posición del nadir (centro inferior de la imagen equirectangular)
         //const logoSize = Math.min(img.width, img.height) * 0.15; // 15% del tamaño menor
-        const logoSize = img.width
+        const logoSize = img.height * 0.15
         const centerX = img.width / 2;
         //const nadirY = img.height * 0.85; // 85% hacia abajo
         const nadirY = img.height*.85; // 85% hacia abajo
