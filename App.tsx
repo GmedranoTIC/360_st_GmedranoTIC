@@ -64,8 +64,8 @@ async function addLogoToNadir(imageSrc: string): Promise<string> {
 
   //<circle cx="24" cy="24" r="22" fill="#92400e" stroke="#fff" stroke-width="2"/>
 //buena <rect x="24" y="24" width="7000" height="400" fill="#92400e" stroke="#fff" stroke-width="2"/>
-<rect x="24" y="24" width="img.width" height="350" fill="#92400e" stroke="#fff" stroke-width="2"/>
-  <text x="3500" y="250" font-size="200" font-weight="bold" fill="white" text-anchor="middle" font-family="sans-serif">360 GmedranoTIC studio - 2026 </text>
+<rect x="24" y="24" width="img.width" height="350" fill="#92400e" stroke="#fff" stroke-width="20"/>
+  <text x="img.width/2" y="200" font-size="200" font-weight="bold" fill="white" text-anchor="middle" font-family="sans-serif" letter-spacing="50">360 GmedranoTIC studio - 2026 </text>
   <text x="24" y="36" font-size="6" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="sans-serif">Studio</text>
 </svg>`;
         
