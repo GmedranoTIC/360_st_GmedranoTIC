@@ -32,7 +32,7 @@ export const LogoSVG = () => (
     </text>
     <text 
       x="24" 
-      y="24" 
+      y="26" 
       fontSize="6" 
       fontWeight="bold" 
       fill="white" 
