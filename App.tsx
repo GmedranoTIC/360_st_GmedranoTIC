@@ -177,24 +177,35 @@ const App: React.FC = () => {
       const zip       = new JSZip();
       const imgFolder = zip.folder('images')!;
 
+      console.log('🚀 Starting export with', tour.scenes.length, 'scenes');
+
       // Convertir todas las imágenes a base64 para el HTML embebido
       const exportScenes = await Promise.all(tour.scenes.map(async (scene, idx) => {
         const filename = scene.imageFileName || `scene_${idx}.jpg`;
+        console.log(`Processing scene ${idx + 1}:`, scene.name, '→', filename);
 
-        // Guardar en carpeta images/ del ZIP (para referencia)
+        let imageBase64 = '';
+        
+        // Guardar en carpeta images/ del ZIP y obtener base64
         if (scene.imageSource) {
           try {
+            console.log('  Fetching image from:', scene.imageSource.substring(0, 50) + '...');
             const blob = await (await fetch(scene.imageSource)).blob();
             imgFolder.file(filename, blob);
-          } catch { /* ignorar */ }
+            console.log('  ✓ Saved to images/' + filename, `(${(blob.size / 1024).toFixed(1)}KB)`);
+            
+            // Convertir a base64 para embeber en HTML
+            imageBase64 = await toDataURL(scene.imageSource);
+            console.log('  ✓ Converted to base64', `(${(imageBase64.length / 1024).toFixed(1)}KB)`);
+          } catch (err) {
+            console.error('  ✗ Failed to process image:', err);
+          }
+        } else {
+          console.warn('  ⚠ Scene has no imageSource');
         }
-
-        // Base64 de la imagen de escena para el HTML
-        const imageBase64 = scene.imageSource ? await toDataURL(scene.imageSource).catch(() => '') : '';
 
         const hotspots = await Promise.all(scene.hotspots.map(async (hs) => {
           if (hs.type === HotspotType.IMAGE && hs.contentImageUrl) {
-            // ya está en base64 si viene del editor
             const b64 = hs.contentImageUrl.startsWith('data:')
               ? hs.contentImageUrl
               : await toDataURL(hs.contentImageUrl).catch(() => hs.contentImageUrl);
@@ -206,13 +217,15 @@ const App: React.FC = () => {
         return { ...scene, imageSource: `images/${filename}`, imageBase64, hotspots };
       }));
 
+      console.log('✓ All scenes processed');
+
       // Copiar logo al ZIP
       try {
         const logoRes = await fetch('/logo.png');
         if (!logoRes.ok) throw new Error(`Logo fetch failed: ${logoRes.status}`);
         const logoBlob = await logoRes.blob();
         zip.file('logo.png', logoBlob);
-        console.log('✓ Logo included in export');
+        console.log('✓ Logo included in export', `(${(logoBlob.size / 1024).toFixed(1)}KB)`);
       } catch (e) {
         console.error('✗ Could not include logo in export:', e);
         alert('Warning: Logo could not be included in export. The tour will work but without watermark.');
@@ -359,13 +372,17 @@ document.getElementById('ov').addEventListener('click',e=>{if(e.target===e.curre
 </html>`;
 
       zip.file('index.html', html);
+      console.log('✓ HTML file created');
+      console.log('🗜️ Generating ZIP...');
       const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 5 } });
+      console.log('✓ ZIP generated', `(${(blob.size / 1024 / 1024).toFixed(2)}MB)`);
       const a = Object.assign(document.createElement('a'), {
         href: URL.createObjectURL(blob),
         download: `${tour.title.replace(/\s+/g, '_')}_tour.zip`,
       });
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      alert('Tour exported! Unzip and open index.html in your browser.');
+      console.log('✓ Download triggered');
+      alert('✅ Tour exported successfully!\n\nUnzip and open index.html in your browser.');
     } catch (e) { console.error(e); alert('Export failed: ' + (e as Error).message); }
     finally { setIsLoading(false); }
   };

@@ -45,11 +45,13 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
 
   const [overlay, setOverlay] = useState<Hotspot | null>(null);
 
+  // Resetear cámara cuando cambia de escena
   useEffect(() => {
     lonRef.current = scene.initialLon ?? 0;
     latRef.current = scene.initialLat ?? 0;
   }, [scene.id, scene.initialLon, scene.initialLat]);
 
+  // ── Inicializar Three.js (una sola vez) ──────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
     const container = containerRef.current;
@@ -68,6 +70,7 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
+    // Esfera con escala -1 en X para invertir (imagen correcta, no espejo)
     const geometry = new THREE.SphereGeometry(500, 60, 40);
     geometry.scale(-1, 1, 1);
     const material = new THREE.MeshBasicMaterial({ transparent: true });
@@ -172,16 +175,29 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
     };
   }, []);
 
+  // ── Cargar textura cuando cambia la escena ───────────────────────────────
   useEffect(() => {
     if (!sphereRef.current || !scene.imageSource) return;
-    new THREE.TextureLoader().load(scene.imageSource, (tex) => {
-      if (!sphereRef.current) return;
-      const mat = sphereRef.current.material as THREE.MeshBasicMaterial;
-      mat.map = tex;
-      mat.needsUpdate = true;
-    });
-  }, [scene.imageSource]);
+    
+    // CORRECCIÓN: forzar que la textura se cargue inmediatamente
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      scene.imageSource,
+      (tex) => {
+        if (!sphereRef.current) return;
+        const mat = sphereRef.current.material as THREE.MeshBasicMaterial;
+        mat.map = tex;
+        mat.needsUpdate = true;
+        console.log('✓ Texture loaded for scene:', scene.id);
+      },
+      undefined,
+      (err) => {
+        console.error('✗ Failed to load texture:', scene.imageSource, err);
+      }
+    );
+  }, [scene.id, scene.imageSource]);
 
+  // ── Aplicar filtros CSS de brillo/contraste al canvas ───────────────────
   useEffect(() => {
     if (!rendererRef.current) return;
     const b = scene.brightness ?? 100;
