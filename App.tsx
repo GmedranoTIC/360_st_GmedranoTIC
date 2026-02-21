@@ -51,7 +51,8 @@ async function addLogoToNadir(imageSrc: string): Promise<string> {
         console.log('  [addLogoToNadir] Image drawn on canvas');
         
         // Calcular posición del nadir (centro inferior de la imagen equirectangular)
-        const logoSize = Math.min(img.width, img.height) * 0.15; // 15% del tamaño menor
+        //const logoSize = Math.min(img.width, img.height) * 0.15; // 15% del tamaño menor
+        const logoSize = Math.max(img.width, img.height); // 100% del tamaño mayor
         const centerX = img.width / 2;
         const nadirY = img.height * 0.85; // 85% hacia abajo
         
@@ -59,7 +60,7 @@ async function addLogoToNadir(imageSrc: string): Promise<string> {
         
         // Crear logo SVG
         //const svgData = `<svg width="${logoSize}" height="${logoSize}" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-	const svgData = `<svg width="${logoSize}" height="${logoSize}" viewBox="0 0 300 100" xmlns="http://www.w3.org/2000/svg">
+	const svgData = `<svg width="${logoSize}" height="${logoSize}*.15" viewBox="0 0 7000 400" xmlns="http://www.w3.org/2000/svg">
 
   //<circle cx="24" cy="24" r="22" fill="#92400e" stroke="#fff" stroke-width="2"/>
 <rect x="24" y="24" width="220" height="30" fill="#92400e" stroke="#fff" stroke-width="2"/>
