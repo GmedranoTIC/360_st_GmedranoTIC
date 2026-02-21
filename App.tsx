@@ -55,7 +55,7 @@ async function addLogoToNadir(imageSrc: string): Promise<string> {
         const logoSize = Math.min(img.width, img.height) * 0.4; // 40% del tamaño menor
         const centerX = img.width / 2;
         //const nadirY = img.height * 0.85; // 85% hacia abajo
-        //const nadirY = img.height*.7; // 70% hacia abajo
+        const nadirY = img.height*.7; // 70% hacia abajo
 
         
         console.log('  [addLogoToNadir] Logo size:', logoSize, 'at position:', centerX, nadirY);
