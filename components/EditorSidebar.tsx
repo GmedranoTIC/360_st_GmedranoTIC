@@ -22,12 +22,14 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
   return (
     <aside className="w-72 bg-stone-900 border-r border-stone-800 flex flex-col z-20 shadow-2xl">
       <div className="p-6 border-b border-stone-800">
-        <div className="flex flex-col gap-1 mb-6">
-          <div className="flex items-center gap-2 text-amber-500 font-black tracking-tighter text-lg uppercase italic">
-            <Map size={24} strokeWidth={3} />
-            360º Studio
+        <div className="flex items-center gap-3 mb-6">
+          <img src="/logo.png" alt="GmedranoTIC" className="w-12 h-12 rounded-full border-2 border-amber-600/30 shadow-lg" />
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-2 text-amber-500 font-black tracking-tighter text-lg uppercase italic leading-none">
+              360º Studio
+            </div>
+            <div className="text-[10px] text-stone-500 font-bold uppercase tracking-[0.2em]">by @GmedranoTIC</div>
           </div>
-          <div className="text-[10px] text-stone-500 font-bold uppercase tracking-[0.2em]">by @GmedranoTIC</div>
         </div>
         
         <div>

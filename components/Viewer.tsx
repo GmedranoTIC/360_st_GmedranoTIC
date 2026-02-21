@@ -36,7 +36,6 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
   const downCoord      = useRef({ x: 0, y: 0 });
   const downRot        = useRef({ lon: 0, lat: 0 });
 
-  // refs para acceder siempre a la versión más reciente en callbacks
   const addHotspotRef    = useRef(onAddHotspot);
   const hotspotClickRef  = useRef(onHotspotClick);
   const previewRef       = useRef(isPreviewMode);
@@ -44,16 +43,13 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
   useEffect(() => { hotspotClickRef.current = onHotspotClick; }, [onHotspotClick]);
   useEffect(() => { previewRef.current      = isPreviewMode;  }, [isPreviewMode]);
 
-  // overlay para preview IMAGE / TEXT
   const [overlay, setOverlay] = useState<Hotspot | null>(null);
 
-  // Resetear cámara cuando cambia de escena
   useEffect(() => {
     lonRef.current = scene.initialLon ?? 0;
     latRef.current = scene.initialLat ?? 0;
-  }, [scene.id]);
+  }, [scene.id, scene.initialLon, scene.initialLat]);
 
-  // ── Inicializar Three.js (una sola vez) ──────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
     const container = containerRef.current;
@@ -72,7 +68,6 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // FIX 1: scale(-1,1,1) para invertir la esfera — imagen se ve correcta, no en espejo
     const geometry = new THREE.SphereGeometry(500, 60, 40);
     geometry.scale(-1, 1, 1);
     const material = new THREE.MeshBasicMaterial({ transparent: true });
@@ -80,7 +75,6 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
     threeScene.add(sphere);
     sphereRef.current = sphere;
 
-    // bucle de render + actualización de posición de hotspots
     const updateHotspots = () => {
       if (!cameraRef.current || !hotspotsLayer.current || !containerRef.current) return;
       const cw = containerRef.current.clientWidth;
@@ -116,7 +110,6 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
       rafId = requestAnimationFrame(loop);
     };
 
-    // eventos de arrastre
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
       interacting.current = true;
@@ -132,7 +125,6 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
       if (!interacting.current) return;
       interacting.current = false;
       const dist = Math.hypot(e.clientX - downCoord.current.x, e.clientY - downCoord.current.y);
-      // click (sin movimiento) en modo editor → añade hotspot
       if (dist < 5 && !previewRef.current && sphereRef.current && cameraRef.current && containerRef.current) {
         const rect  = containerRef.current.getBoundingClientRect();
         const mouse = new THREE.Vector2(
@@ -180,7 +172,6 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
     };
   }, []);
 
-  // ── Cargar textura cuando cambia la escena ───────────────────────────────
   useEffect(() => {
     if (!sphereRef.current || !scene.imageSource) return;
     new THREE.TextureLoader().load(scene.imageSource, (tex) => {
@@ -191,7 +182,6 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
     });
   }, [scene.imageSource]);
 
-  // ── Aplicar filtros CSS de brillo/contraste al canvas ───────────────────
   useEffect(() => {
     if (!rendererRef.current) return;
     const b = scene.brightness ?? 100;
@@ -199,11 +189,18 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
     rendererRef.current.domElement.style.filter = `brightness(${b}%) contrast(${c}%)`;
   }, [scene.brightness, scene.contrast]);
 
-  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div ref={containerRef} className="w-full h-full bg-[#0c0a09] relative overflow-hidden touch-none cursor-grab active:cursor-grabbing">
 
-      {/* Capa de hotspots — siempre pointer-events:none salvo cada botón */}
+      {/* Marca de agua - logo en la parte inferior */}
+      <div className="absolute bottom-4 left-4 z-10 pointer-events-none select-none opacity-70">
+        <img 
+          src="/logo.png" 
+          alt="GmedranoTIC" 
+          className="w-12 h-12 rounded-full border-2 border-white/20 shadow-lg"
+        />
+      </div>
+
       <div ref={hotspotsLayer} className="absolute inset-0 z-20" style={{ pointerEvents: 'none' }}>
         {scene.hotspots.map((hs) => (
           <button
@@ -240,14 +237,12 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
         ))}
       </div>
 
-      {/* Hint modo editor */}
       {!isPreviewMode && (
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-stone-950/80 backdrop-blur-md border border-stone-800 px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 pointer-events-none z-30">
           Click anywhere to place hotspot
         </div>
       )}
 
-      {/* Overlay IMAGE / TEXT en preview */}
       {overlay && (
         <div
           className="absolute inset-0 z-50 bg-black/92 flex flex-col items-center justify-center p-8 animate-fadeIn"

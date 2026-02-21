@@ -206,6 +206,15 @@ const App: React.FC = () => {
         return { ...scene, imageSource: `images/${filename}`, imageBase64, hotspots };
       }));
 
+      // Copiar logo al ZIP
+      try {
+        const logoRes = await fetch('/logo.png');
+        const logoBlob = await logoRes.blob();
+        zip.file('logo.png', logoBlob);
+      } catch (e) {
+        console.warn('Could not include logo in export:', e);
+      }
+
       // HTML del visor con imágenes embebidas en base64
       const tourJson = JSON.stringify({ ...tour, scenes: exportScenes });
 
@@ -222,6 +231,7 @@ const App: React.FC = () => {
     #c{width:100vw;height:100vh;cursor:grab}
     #c:active{cursor:grabbing}
     #title{position:fixed;top:20px;left:20px;color:#fff;background:rgba(0,0,0,.6);padding:10px 20px;border-radius:20px;font-weight:700;font-size:15px;pointer-events:none;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.1)}
+    #logo{position:fixed;bottom:16px;left:16px;width:48px;height:48px;border-radius:50%;border:2px solid rgba(255,255,255,.2);box-shadow:0 4px 12px rgba(0,0,0,.5);pointer-events:none;opacity:.7}
     #credit{position:fixed;bottom:14px;right:14px;color:rgba(255,255,255,.5);font-size:10px;font-weight:700;background:rgba(0,0,0,.35);padding:6px 12px;border-radius:7px;pointer-events:none}
     .hs{position:absolute;width:44px;height:44px;border-radius:50%;cursor:pointer;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.5);z-index:10;transition:transform .18s}
     .hs:hover{transform:translate(-50%,-50%) scale(1.18)}
@@ -239,6 +249,7 @@ const App: React.FC = () => {
 <body>
   <div id="loading">LOADING TOUR…</div>
   <div id="title">${tour.title}</div>
+  <img id="logo" src="logo.png" alt="@GmedranoTIC" />
   <div id="credit">360° Studio · @GmedranoTIC</div>
   <canvas id="c"></canvas>
   <div id="ov">
