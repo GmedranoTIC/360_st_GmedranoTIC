@@ -3,6 +3,7 @@ import { Scene, Tour, Hotspot, HotspotType } from './types';
 import Viewer from './components/Viewer';
 import EditorSidebar from './components/EditorSidebar';
 import HotspotPanel from './components/HotspotPanel';
+import { LogoSVG, LOGO_BASE64 } from './components/Logo';
 import { db } from './utils/db';
 import JSZip from 'jszip';
 import {
@@ -219,17 +220,8 @@ const App: React.FC = () => {
 
       console.log('✓ All scenes processed');
 
-      // Copiar logo al ZIP
-      try {
-        const logoRes = await fetch('./image/logo.png');
-        if (!logoRes.ok) throw new Error(`Logo fetch failed: ${logoRes.status}`);
-        const logoBlob = await logoRes.blob();
-        zip.file('./image/logo.png', logoBlob);
-        console.log('✓ Logo included in export', `(${(logoBlob.size / 1024).toFixed(1)}KB)`);
-      } catch (e) {
-        console.error('✗ Could not include logo in export:', e);
-        alert('Warning: Logo could not be included in export. The tour will work but without watermark.');
-      }
+      // El logo ya está embebido en el HTML como SVG, no necesita archivo externo
+      console.log('✓ Logo will be embedded in HTML as SVG');
 
       // HTML del visor con imágenes embebidas en base64
       const tourJson = JSON.stringify({ ...tour, scenes: exportScenes });
@@ -265,7 +257,11 @@ const App: React.FC = () => {
 <body>
   <div id="loading">LOADING TOUR…</div>
   <div id="title">${tour.title}</div>
-  <img id="logo" src="./image/logo.png" alt="@GmedranoTIC" />
+  <svg id="logo" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="24" cy="24" r="22" fill="#92400e" stroke="#fff" stroke-width="2"/>
+    <text x="24" y="28" font-size="16" font-weight="bold" fill="white" text-anchor="middle" font-family="sans-serif">360</text>
+    <text x="24" y="36" font-size="6" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="sans-serif">Studio</text>
+  </svg>
   <div id="credit">360° Studio · @GmedranoTIC</div>
   <canvas id="c"></canvas>
   <div id="ov">
@@ -415,7 +411,7 @@ document.getElementById('ov').addEventListener('click',e=>{if(e.target===e.curre
       <div className="flex-1 relative flex flex-col overflow-hidden">
         <header className="h-16 border-b border-stone-800 flex items-center justify-between px-6 bg-stone-900/50 backdrop-blur-md z-10 shrink-0">
           <div className="flex items-center gap-4 overflow-x-auto no-scrollbar">
-            <img src="./image/logo.png" alt="GmedranoTIC" className="w-10 h-10 rounded-full border-2 border-amber-600/40 shadow-lg shrink-0" />
+            <div className="shrink-0"><LogoSVG /></div>
             <h1 className="text-base font-bold truncate max-w-[180px] text-stone-100 shrink-0">{tour.title}</h1>
             <button onClick={createNewTour} className={btn}><FilePlus size={15}/>New</button>
             <label className={btn + ' cursor-pointer'}>

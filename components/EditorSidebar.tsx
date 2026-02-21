@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tour, Scene } from '../types';
 import { Plus, Trash2, Home, Map, PlusCircle } from 'lucide-react';
+import { LogoSVG } from './Logo';
 
 interface EditorSidebarProps {
   tour: Tour;
@@ -23,7 +24,7 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
     <aside className="w-72 bg-stone-900 border-r border-stone-800 flex flex-col z-20 shadow-2xl">
       <div className="p-6 border-b border-stone-800">
         <div className="flex items-center gap-3 mb-6">
-          <img src="/logo.png" alt="GmedranoTIC" className="w-12 h-12 rounded-full border-2 border-amber-600/30 shadow-lg" />
+          <LogoSVG />
           <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-2 text-amber-500 font-black tracking-tighter text-lg uppercase italic leading-none">
               360º Studio

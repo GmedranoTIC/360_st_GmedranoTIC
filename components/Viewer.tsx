@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Scene, Hotspot, HotspotType } from '../types';
+import { LogoSVG } from './Logo';
 
 interface ViewerProps {
   scene: Scene;
@@ -210,11 +211,7 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
 
       {/* Marca de agua - logo en la parte inferior */}
       <div className="absolute bottom-4 left-4 z-10 pointer-events-none select-none opacity-70">
-        <img 
-          src="./image/logo.png" 
-          alt="GmedranoTIC" 
-          className="w-12 h-12 rounded-full border-2 border-white/20 shadow-lg"
-        />
+        <LogoSVG />
       </div>
 
       <div ref={hotspotsLayer} className="absolute inset-0 z-20" style={{ pointerEvents: 'none' }}>
