@@ -55,7 +55,7 @@ async function addLogoToNadir(imageSrc: string): Promise<string> {
         const logoSize = Math.min(img.width, img.height) * 0.4; // 40% del tamaño menor
         const centerX = img.width / 2;
         //const nadirY = img.height * 0.85; // 85% hacia abajo
-        const nadirY = img.height; // 100% hacia abajo
+        //const nadirY = img.height*.7; // 70% hacia abajo
 
         
         console.log('  [addLogoToNadir] Logo size:', logoSize, 'at position:', centerX, nadirY);
@@ -63,7 +63,7 @@ async function addLogoToNadir(imageSrc: string): Promise<string> {
         // Crear logo SVG
         const svgData = `<svg width="${logoSize}" height="${logoSize}" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
   //<circle cx="24" cy="24" r="22" fill="#92400e" stroke="#fff" stroke-width="2"/>
-  <circle cx="0" cy="0" r="300" fill="#92400e" stroke="#fff" stroke-width="2"/>
+  <rect x="0" y="0" width="888" height="444" fill="#92400e" stroke="#fff" stroke-width="2"/>
 
   <text x="24" y="20" font-size="28" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="sans-serif">360</text>
   <text x="24" y="28" font-size="26" font-weight="bold" fill="white" text-anchor="middle" font-family="sans-serif">GmedranoTIC</text>
