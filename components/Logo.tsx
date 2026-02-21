@@ -28,7 +28,7 @@ export const LogoSVG = () => (
       textAnchor="middle"
       fontFamily="system-ui, sans-serif"
     >
-      360
+      GmedranoTIC
     </text>
     <text 
       x="24" 
@@ -38,7 +38,7 @@ export const LogoSVG = () => (
       textAnchor="middle"
       fontFamily="system-ui, sans-serif"
     >
-      Studio
+      360 Studio
     </text>
   </svg>
 );
