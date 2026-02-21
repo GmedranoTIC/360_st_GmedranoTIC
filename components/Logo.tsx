@@ -21,6 +21,17 @@ export const LogoSVG = () => (
     </defs>
     <text 
       x="24" 
+      y="20" 
+      fontSize="8" 
+      fontWeight="bold" 
+      fill="white" 
+      textAnchor="middle"
+      fontFamily="system-ui, sans-serif"
+    >
+      360
+    </text>
+    <text 
+      x="24" 
       y="28" 
       fontSize="6" 
       fontWeight="bold" 
