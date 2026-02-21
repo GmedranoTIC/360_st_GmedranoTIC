@@ -52,7 +52,7 @@ async function addLogoToNadir(imageSrc: string): Promise<string> {
         
         // Calcular posición del nadir (centro inferior de la imagen equirectangular)
         //const logoSize = Math.min(img.width, img.height) * 0.15; // 15% del tamaño menor
-        const logoSize = Math.min(img.width, img.height) * 0.4; // 40% del tamaño menor
+        const logoSize = Math.min(img.width, img.height) * 0.15; // 15% del tamaño menor
         const centerX = img.width / 2;
         //const nadirY = img.height * 0.85; // 85% hacia abajo
         const nadirY = img.height*.7; // 70% hacia abajo
@@ -63,11 +63,11 @@ async function addLogoToNadir(imageSrc: string): Promise<string> {
         // Crear logo SVG
         const svgData = `<svg width="${logoSize}" height="${logoSize}" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
   //<circle cx="24" cy="24" r="22" fill="#92400e" stroke="#fff" stroke-width="2"/>
-  <rect x="30" y="30" width="888" height="444" fill="#92400e" stroke="#fff" stroke-width="2"/>
+  <rect x="img.width / 2" y="30" width="888" height="444" fill="#92400e" stroke="#fff" stroke-width="2"/>
 
   <text x="24" y="20" font-size="28" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="sans-serif">360</text>
-  <text x="240" y="28" font-size="26" font-weight="bold" fill="white" text-anchor="middle" font-family="sans-serif">GmedranoTIC</text>
-  <text x="504" y="36" font-size="26" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="sans-serif">studio</text>
+  <text x="50" y="20" font-size="26" font-weight="bold" fill="white" text-anchor="middle" font-family="sans-serif">GmedranoTIC</text>
+  <text x="70" y="20" font-size="26" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="sans-serif">studio</text>
 </svg>`;
         
         const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
