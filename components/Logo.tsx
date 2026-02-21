@@ -22,7 +22,7 @@ export const LogoSVG = () => (
     <text 
       x="24" 
       y="20" 
-      fontSize="8" 
+      fontSize="12" 
       fontWeight="bold" 
       fill="white" 
       textAnchor="middle"
@@ -44,12 +44,12 @@ export const LogoSVG = () => (
     <text 
       x="24" 
       y="36" 
-      fontSize="6" 
+      fontSize="12" 
       fill="rgba(255,255,255,0.8)" 
       textAnchor="middle"
       fontFamily="system-ui, sans-serif"
     >
-      360 Studio
+      Studio
     </text>
   </svg>
 );
