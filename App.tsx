@@ -63,19 +63,13 @@ async function addLogoToNadir(imageSrc: string): Promise<string> {
         // Crear logo SVG
 	//const svgData = `<svg width="${logoSize}" height="${logoSize}" viewBox="0 0 480 48" xmlns="http://www.w3.org/2000/svg">
         const svgData = `<svg width="${logoSize}" height="${logoSize}" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg>
-  //<circle cx="24" cy="24" r="22" fill="#92400e" stroke="#fff" stroke-width="2"/>
-  //<rect x="300" y="30" width="100" height="200" fill="#92400e" stroke="#fff" stroke-width="2"/>
-  <circle 
-cx="24" 
-cy="24"
-r="22"
+  <circle cx="24" cy="24" r="22" fill="#92400e" stroke="#fff" stroke-width="2"/>
+  <rect x="300" y="30" width="100" height="200" fill="#92400e" stroke="#fff" stroke-width="2"/>
+
 //cx=imageWidth / 2 
 //cy=img.height * 0.075
 //r=img.height * 0.075
-fill="#92400e" 
-stroke="#fff"
-stroke-width="2"
-/>
+
 
 <text x="-240" y="16" font-size="28" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="sans-serif">360 GmedranoTIC studio</text>
   //<text x="-240" y="16" font-size="28" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="sans-serif">360</text>
