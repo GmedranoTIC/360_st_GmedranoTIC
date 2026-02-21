@@ -66,11 +66,14 @@ async function addLogoToNadir(imageSrc: string): Promise<string> {
   //<circle cx="24" cy="24" r="22" fill="#92400e" stroke="#fff" stroke-width="2"/>
   //<rect x="300" y="30" width="100" height="200" fill="#92400e" stroke="#fff" stroke-width="2"/>
   <circle 
-cx=imageWidth / 2 
-cy=img.height * 0.075
-r=img.height * 0.075
-fill=#92400e 
-stroke="fff 
+cx="24" 
+cy="24"
+r="22"
+//cx=imageWidth / 2 
+//cy=img.height * 0.075
+//r=img.height * 0.075
+fill="#92400e" 
+stroke="#fff"
 stroke-width="2"
 />
 
