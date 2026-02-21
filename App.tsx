@@ -23,6 +23,103 @@ async function toDataURL(src: string): Promise<string> {
   });
 }
 
+// Añade logo SVG en el nadir (parte inferior) de una imagen 360°
+async function addLogoToNadir(imageSrc: string): Promise<string> {
+  console.log('  [addLogoToNadir] Starting for image:', imageSrc.substring(0, 60));
+  
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      try {
+        console.log('  [addLogoToNadir] Image loaded:', img.width, 'x', img.height);
+        
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          throw new Error('Could not get canvas context');
+        }
+        
+        // La imagen equirectangular mantiene sus dimensiones
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        // Dibujar la imagen original
+        ctx.drawImage(img, 0, 0);
+        console.log('  [addLogoToNadir] Image drawn on canvas');
+        
+        // Calcular posición del nadir (centro inferior de la imagen equirectangular)
+        const logoSize = Math.min(img.width, img.height) * 0.15; // 15% del tamaño menor
+        const centerX = img.width / 2;
+        const nadirY = img.height * 0.85; // 85% hacia abajo
+        
+        console.log('  [addLogoToNadir] Logo size:', logoSize, 'at position:', centerX, nadirY);
+        
+        // Crear logo SVG
+        const svgData = `<svg width="${logoSize}" height="${logoSize}" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="24" cy="24" r="22" fill="#92400e" stroke="#fff" stroke-width="2"/>
+  <text x="24" y="28" font-size="16" font-weight="bold" fill="white" text-anchor="middle" font-family="sans-serif">360</text>
+  <text x="24" y="36" font-size="6" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="sans-serif">Studio</text>
+</svg>`;
+        
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+        const svgUrl = URL.createObjectURL(svgBlob);
+        console.log('  [addLogoToNadir] SVG blob created');
+        
+        const logoImg = new Image();
+        
+        logoImg.onload = () => {
+          try {
+            console.log('  [addLogoToNadir] Logo image loaded, drawing...');
+            
+            // Dibujar logo en el nadir con sombra
+            ctx.save();
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 2;
+            ctx.drawImage(logoImg, centerX - logoSize / 2, nadirY - logoSize / 2, logoSize, logoSize);
+            ctx.restore();
+            
+            console.log('  [addLogoToNadir] Logo drawn successfully');
+            
+            URL.revokeObjectURL(svgUrl);
+            
+            // Convertir canvas a base64
+            const result = canvas.toDataURL('image/jpeg', 0.92);
+            console.log('  [addLogoToNadir] Converted to base64, length:', result.length);
+            resolve(result);
+          } catch (err) {
+            console.error('  [addLogoToNadir] Error drawing logo:', err);
+            URL.revokeObjectURL(svgUrl);
+            reject(err);
+          }
+        };
+        
+        logoImg.onerror = (err) => {
+          console.error('  [addLogoToNadir] Failed to load logo image:', err);
+          URL.revokeObjectURL(svgUrl);
+          reject(new Error('Failed to load logo SVG'));
+        };
+        
+        logoImg.src = svgUrl;
+      } catch (err) {
+        console.error('  [addLogoToNadir] Error in onload:', err);
+        reject(err);
+      }
+    };
+    
+    img.onerror = (err) => {
+      console.error('  [addLogoToNadir] Failed to load source image:', err);
+      reject(new Error('Failed to load source image'));
+    };
+    
+    img.src = imageSrc;
+  });
+}
+
 const App: React.FC = () => {
   const [tour, setTour] = useState<Tour>({ title: 'My 360 Tour', startSceneId: '', scenes: [] });
   const [activeSceneId,   setActiveSceneId]   = useState('');
@@ -191,12 +288,26 @@ const App: React.FC = () => {
         if (scene.imageSource) {
           try {
             console.log('  Fetching image from:', scene.imageSource.substring(0, 50) + '...');
-            const blob = await (await fetch(scene.imageSource)).blob();
+            
+            // Añadir logo en el nadir de la imagen
+            console.log('  Adding logo to nadir...');
+            let imageWithLogo;
+            try {
+              imageWithLogo = await addLogoToNadir(scene.imageSource);
+              console.log('  ✓ Logo added to nadir');
+            } catch (logoError) {
+              console.error('  ✗ Failed to add logo, using original image:', logoError);
+              // Fallback: usar imagen original sin logo
+              imageWithLogo = await toDataURL(scene.imageSource);
+            }
+            
+            // Convertir a blob para guardar en ZIP
+            const blob = await (await fetch(imageWithLogo)).blob();
             imgFolder.file(filename, blob);
             console.log('  ✓ Saved to images/' + filename, `(${(blob.size / 1024).toFixed(1)}KB)`);
             
-            // Convertir a base64 para embeber en HTML
-            imageBase64 = await toDataURL(scene.imageSource);
+            // Usar la imagen (con o sin logo) para base64
+            imageBase64 = imageWithLogo;
             console.log('  ✓ Converted to base64', `(${(imageBase64.length / 1024).toFixed(1)}KB)`);
           } catch (err) {
             console.error('  ✗ Failed to process image:', err);
@@ -220,8 +331,8 @@ const App: React.FC = () => {
 
       console.log('✓ All scenes processed');
 
-      // El logo ya está embebido en el HTML como SVG, no necesita archivo externo
-      console.log('✓ Logo will be embedded in HTML as SVG');
+      // Logo añadido en el nadir de cada imagen
+      console.log('✓ Logo embedded in nadir of all 360° images');
 
       // HTML del visor con imágenes embebidas en base64
       const tourJson = JSON.stringify({ ...tour, scenes: exportScenes });
@@ -239,7 +350,6 @@ const App: React.FC = () => {
     #c{width:100vw;height:100vh;cursor:grab}
     #c:active{cursor:grabbing}
     #title{position:fixed;top:20px;left:20px;color:#fff;background:rgba(0,0,0,.6);padding:10px 20px;border-radius:20px;font-weight:700;font-size:15px;pointer-events:none;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.1)}
-    #logo{position:fixed;bottom:16px;left:16px;width:48px;height:48px;border-radius:50%;border:2px solid rgba(255,255,255,.2);box-shadow:0 4px 12px rgba(0,0,0,.5);pointer-events:none;opacity:.7}
     #credit{position:fixed;bottom:14px;right:14px;color:rgba(255,255,255,.5);font-size:10px;font-weight:700;background:rgba(0,0,0,.35);padding:6px 12px;border-radius:7px;pointer-events:none}
     .hs{position:absolute;width:44px;height:44px;border-radius:50%;cursor:pointer;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.5);z-index:10;transition:transform .18s}
     .hs:hover{transform:translate(-50%,-50%) scale(1.18)}
@@ -257,11 +367,6 @@ const App: React.FC = () => {
 <body>
   <div id="loading">LOADING TOUR…</div>
   <div id="title">${tour.title}</div>
-  <svg id="logo" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="24" cy="24" r="22" fill="#92400e" stroke="#fff" stroke-width="2"/>
-    <text x="24" y="28" font-size="16" font-weight="bold" fill="white" text-anchor="middle" font-family="sans-serif">360</text>
-    <text x="24" y="36" font-size="6" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="sans-serif">Studio</text>
-  </svg>
   <div id="credit">360° Studio · @GmedranoTIC</div>
   <canvas id="c"></canvas>
   <div id="ov">
