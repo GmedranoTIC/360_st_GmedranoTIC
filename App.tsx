@@ -209,10 +209,13 @@ const App: React.FC = () => {
       // Copiar logo al ZIP
       try {
         const logoRes = await fetch('/logo.png');
+        if (!logoRes.ok) throw new Error(`Logo fetch failed: ${logoRes.status}`);
         const logoBlob = await logoRes.blob();
         zip.file('logo.png', logoBlob);
+        console.log('✓ Logo included in export');
       } catch (e) {
-        console.warn('Could not include logo in export:', e);
+        console.error('✗ Could not include logo in export:', e);
+        alert('Warning: Logo could not be included in export. The tour will work but without watermark.');
       }
 
       // HTML del visor con imágenes embebidas en base64
@@ -394,8 +397,9 @@ document.getElementById('ov').addEventListener('click',e=>{if(e.target===e.curre
 
       <div className="flex-1 relative flex flex-col overflow-hidden">
         <header className="h-16 border-b border-stone-800 flex items-center justify-between px-6 bg-stone-900/50 backdrop-blur-md z-10 shrink-0">
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-            <h1 className="text-base font-bold truncate max-w-[180px] text-stone-100 shrink-0 mr-3">{tour.title}</h1>
+          <div className="flex items-center gap-4 overflow-x-auto no-scrollbar">
+            <img src="/logo.png" alt="GmedranoTIC" className="w-10 h-10 rounded-full border-2 border-amber-600/40 shadow-lg shrink-0" />
+            <h1 className="text-base font-bold truncate max-w-[180px] text-stone-100 shrink-0">{tour.title}</h1>
             <button onClick={createNewTour} className={btn}><FilePlus size={15}/>New</button>
             <label className={btn + ' cursor-pointer'}>
               <FileCode size={15}/>Open
