@@ -51,30 +51,17 @@ async function addLogoToNadir(imageSrc: string): Promise<string> {
         console.log('  [addLogoToNadir] Image drawn on canvas');
         
         // Calcular posición del nadir (centro inferior de la imagen equirectangular)
-        //const logoSize = Math.min(img.width, img.height) * 0.15; // 15% del tamaño menor
-        const logoSize = img.height * 0.15
+        const logoSize = Math.min(img.width, img.height) * 0.15; // 15% del tamaño menor
         const centerX = img.width / 2;
-        //const nadirY = img.height * 0.85; // 85% hacia abajo
-        const nadirY = img.height*.85; // 85% hacia abajo
-
+        const nadirY = img.height * 0.85; // 85% hacia abajo
         
         console.log('  [addLogoToNadir] Logo size:', logoSize, 'at position:', centerX, nadirY);
         
         // Crear logo SVG
-	//const svgData = `<svg width="${logoSize}" height="${logoSize}" viewBox="0 0 480 48" xmlns="http://www.w3.org/2000/svg">
-        const svgData = `<svg width="${logoSize}" height="${logoSize}" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg>
+        const svgData = `<svg width="${logoSize}" height="${logoSize}" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
   <circle cx="24" cy="24" r="22" fill="#92400e" stroke="#fff" stroke-width="2"/>
-  <rect x="300" y="30" width="100" height="200" fill="#92400e" stroke="#fff" stroke-width="2"/>
-
-//cx=imageWidth / 2 
-//cy=img.height * 0.075
-//r=img.height * 0.075
-
-
-<text x="-240" y="16" font-size="28" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="sans-serif">360 GmedranoTIC studio</text>
-  //<text x="-240" y="16" font-size="28" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="sans-serif">360</text>
-  //<text x="100" y="20" font-size="26" font-weight="bold" fill="white" text-anchor="middle" font-family="sans-serif">GmedranoTIC</text>
-  //<text x="170" y="20" font-size="26" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="sans-serif">studio</text>
+  <text x="24" y="28" font-size="16" font-weight="bold" fill="white" text-anchor="middle" font-family="sans-serif">360</text>
+  <text x="24" y="36" font-size="6" fill="rgba(255,255,255,0.8)" text-anchor="middle" font-family="sans-serif">Studio</text>
 </svg>`;
         
         const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
