@@ -211,7 +211,7 @@ const Viewer: React.FC<ViewerProps> = ({ scene, onAddHotspot, onHotspotClick, se
       {/* Marca de agua - logo en la parte inferior */}
       <div className="absolute bottom-4 left-4 z-10 pointer-events-none select-none opacity-70">
         <img 
-          src="/logo.png" 
+          src="./image/logo.png" 
           alt="GmedranoTIC" 
           className="w-12 h-12 rounded-full border-2 border-white/20 shadow-lg"
         />
