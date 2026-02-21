@@ -21,7 +21,7 @@ export const LogoSVG = () => (
     </defs>
     <text 
       x="24" 
-      y="20" 
+      y="18" 
       fontSize="12" 
       fontWeight="bold" 
       fill="white" 
@@ -32,7 +32,7 @@ export const LogoSVG = () => (
     </text>
     <text 
       x="24" 
-      y="28" 
+      y="24" 
       fontSize="6" 
       fontWeight="bold" 
       fill="white" 
@@ -44,12 +44,12 @@ export const LogoSVG = () => (
     <text 
       x="24" 
       y="36" 
-      fontSize="12" 
+      fontSize="11" 
       fill="rgba(255,255,255,0.8)" 
       textAnchor="middle"
       fontFamily="system-ui, sans-serif"
     >
-      Studio
+      studio
     </text>
   </svg>
 );
