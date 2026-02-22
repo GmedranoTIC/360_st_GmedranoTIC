@@ -83,7 +83,7 @@ async function addLogoToNadir(imageSrc: string): Promise<string> {
             // Dibujar logo en el nadir con sombra
             ctx.save();
             ctx.shadowColor = 'rgba(0, 0, 0, 1)';
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = 0;
             ctx.shadowOffsetX = 0;
             ctx.shadowOffsetY = 0;
             ctx.drawImage(logoImg, centerX - logoSize / 2, nadirY - logoSize / 2, logoSize, logoSize);
